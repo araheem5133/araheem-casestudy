@@ -1,6 +1,6 @@
 # Abdul Raheem Case Study
 ## Requires Docker to run via docker-compose
-## Built using the Django framework. Search indexing done with a PostgreSQL backend and an Elastic Search local cluster.
+## Built using the Django framework. Search indexing done with a PostgreSQL backend and an Elasticsearch local cluster.
 
 ### Clone repository into a container and run the application with the following commands:
 pip install -r requirements.txt
