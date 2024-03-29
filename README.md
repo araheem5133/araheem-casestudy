@@ -1,5 +1,6 @@
 # Abdul Raheem Case Study
 ## Requires Docker to run via docker-compose
+## Built using the Django framework. Search indexing done with a PostgreSQL backend and an Elastic Search local cluster.
 
 ### Clone repository into a container and run the application with the following commands:
 pip install -r requirements.txt
@@ -17,7 +18,9 @@ python manage.py import_csv data.csv --max=10000 (You may replace 10000 with how
 python manage.py search_index --rebuild (Ensure this is run after every import or the query will not work properly!)
 
 To start the application run the following command:
+
 python manage.py runserver
+
 Navigate to http://127.0.0.1:8000/ or whichever directory is referenced on execute.
 
 ### Querying
