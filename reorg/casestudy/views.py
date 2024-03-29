@@ -1,7 +1,6 @@
 from django.shortcuts import render
 from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from django_elasticsearch_dsl.search import Search
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger, Page
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Q
 from django.urls import reverse
@@ -11,38 +10,39 @@ from .forms import PaymentRangeForm
 from datetime import datetime
 
 #Columns that we want to filter by
-columns = [ "covered_recipient_profile_id",
-            "covered_recipient_npi",
-            "physician_full_name",
-            "full_address",
-            "recipient_city",
-            "recipient_state",
-            "recipient_zip_code",
-            "recipient_country",
-            "recipient_province",
-            "recipient_postal_code",
-            "covered_recipient_primary_type_1",
-            "covered_recipient_specialty_1",
-            "covered_recipient_license_state_code1",
-            "submitting_applicable_manufacturer_or_applicable_gpo_name",
-            "applicable_manufacturer_or_applicable_gpo_making_payment_name",
-            "total_amount_of_payment_usdollars",
-            "date_of_payment",
-            "number_of_payments_included_in_total_amount",
-            "form_of_payment_or_transfer_of_value",
-            "nature_of_payment_or_transfer_of_value",
-            "city_of_travel",
-            "state_of_travel",
-            "country_of_travel",
-            "physician_ownership_indicator",
-            "third_party_payment_recipient_indicator",
-            "name_of_third_party_entity_receiving_payment_or_transfer",
-            "charity_indicator",
-            "third_party_equals_covered_recipient_indicator",
-            "delay_in_publication_indicator",
-            "record_id",
-            "dispute_status_for_publication",
-            "related_product_indicator",
+columns = [
+    ("record_id", "Record ID"),
+    ("physician_full_name", "Physician Full Name"),
+    ("full_address", "Full Address"),
+    ("covered_recipient_profile_id", "Recipient Profile ID"),
+    ("covered_recipient_npi", "Recipient NPI"),
+    ("recipient_city", "Recipient City"),
+    ("recipient_state", "Recipient State"),
+    ("recipient_zip_code", "Recipient ZIP Code"),
+    ("recipient_country", "Recipient Country"),
+    ("recipient_province", "Recipient Province"),
+    ("recipient_postal_code", "Recipient Postal Code"),
+    ("covered_recipient_primary_type_1", "Recipient Primary Type"),
+    ("covered_recipient_specialty_1", "Recipient Specialty"),
+    ("covered_recipient_license_state_code1", "Recipient License State Code"),
+    ("submitting_applicable_manufacturer_or_applicable_gpo_name", "Submitting Manufacturer or GPO Name"),
+    ("applicable_manufacturer_or_applicable_gpo_making_payment_name", "Manufacturer or GPO Making Payment Name"),
+    ("total_amount_of_payment_usdollars", "Total Amount of Payment (USD)"),
+    ("date_of_payment", "Date of Payment"),
+    ("number_of_payments_included_in_total_amount", "Number of Payments Included in Total Amount"),
+    ("form_of_payment_or_transfer_of_value", "Form of Payment or Transfer of Value"),
+    ("nature_of_payment_or_transfer_of_value", "Nature of Payment or Transfer of Value"),
+    ("city_of_travel", "City of Travel"),
+    ("state_of_travel", "State of Travel"),
+    ("country_of_travel", "Country of Travel"),
+    ("physician_ownership_indicator", "Physician Ownership Indicator"),
+    ("third_party_payment_recipient_indicator", "Third Party Payment Recipient Indicator"),
+    ("name_of_third_party_entity_receiving_payment_or_transfer", "Name of Third Party Entity"),
+    ("charity_indicator", "Charity Indicator"),
+    ("third_party_equals_covered_recipient_indicator", "Third Party is Recipient"),
+    ("delay_in_publication_indicator", "Delay in Publication Indicator"),
+    ("dispute_status_for_publication", "Dispute Status for Publication"),
+    ("related_product_indicator", "Related Product Indicator"),
 ]
 
 #Holds all our active filters in a str->set dictionary
@@ -62,11 +62,11 @@ def download_data(request):
     ws = wb.active
 
     # Add headers to the worksheet
-    ws.append(columns)
+    ws.append([col_name for col_name, _ in columns])
 
     # Paginate through the entire result set
     for hit in search.scan():
-        row_data = [getattr(hit, column, '') for column in columns]
+        row_data = [getattr(hit, column[0], '') for column in columns]
         ws.append(row_data)
 
     # Create a temporary file to save the workbook
@@ -217,12 +217,13 @@ def autocomplete(request):
         response = search.execute()
 
         #Renders all relevant context to home.html
+        print(response.hits.total['value'])
         return render(request, 'home.html', {
             'active_filters': active_filters,
-            'column_names': columns,
             'hits': response.hits,
             'columns': columns,
-            'payment_range_form': payment_range_form
+            'payment_range_form': payment_range_form,
+            'total_hits': response.hits.total['value']
         })
 
     #Handles our autosuggestion and typeahead
@@ -239,25 +240,25 @@ def autocomplete(request):
         #Full address and physician full name handled differently because they are ngram filters.
         if search_column in ['full_address', 'physician_full_name']:
             suggest_query = {
+                "query": {
+                    "bool": {
+                        "filter": build_elasticsearch_query(active_filters).to_dict()  # Add active filters to the query
+                    }
+                },
                 "suggest": {
                     "name_suggestions": {
                         "prefix": search_term,
                         "completion": {
                             "field": search_column,
-                            "skip_duplicates": True  # Ensure uniqueness
+                            "skip_duplicates": True
                         },
                     },
                 },
-                "query": {
-                    "bool": {
-                        "filter": build_elasticsearch_query(active_filters).to_dict()  # Add active filters to the query
-                    }
-                }
             }
             
-            #Searchs with the ElasticSearch client and populates suggestions
             response = es.search(index="payment_data", body=suggest_query)
             sugge = response["suggest"]["name_suggestions"][0]["options"]
+
             suggestions = []
             if sugge:
                 for suggestion in sugge:
@@ -279,7 +280,6 @@ def autocomplete(request):
     return render(request, 'home.html', {
             'active_filters': active_filters,
             'columns': columns,
-            'column_names': columns,
             'hits': response.hits,
             'payment_range_form': payment_range_form
         })
