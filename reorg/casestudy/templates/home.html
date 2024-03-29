@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+{% load app_filters %}
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <!-- Bootstrap and jQuery themes -->
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.13.2/themes/base/jquery-ui.css">
+        <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+        <style>
+            /* Custom CSS to constrain table width and allow horizontal scrolling */
+            .table-container {
+                width: 100%; /* Fill the width of the page */
+                height: 400px; /* Set a fixed height for the container */
+                overflow-y: auto; /* Enable vertical scrolling */
+            }
+        </style>
+    </head>
+</html>
+
+<body>
+    <h1>General Payments 2022 @ Reorg </h1>
+    <!-- Primary input form -->
+    <form method="POST" action="{% url 'autocomplete' %}">
+        {% csrf_token %}
+        <!-- Dropdown for columns to filter by -->
+        <label for="column">Search Column:</label>
+        <select name="column" id="column">
+            {% for column in columns %}
+                <option value="{{ column }}">{{ column }}</option> 
+            {% endfor %}
+        </select>
+
+        <!-- Written text input field -->
+        <div id="fname-container">
+            <label for="fname">Input</label>
+            <input type="text" name="fname" id="fname">
+        </div>
+        
+        <!-- Checkbox dropdown -->
+        <div id="response-container">
+        </div>
+
+        <!-- Payment range field -->
+        <div id="payment-range-container" style="display: none;">
+            {% csrf_token %}
+            {{ payment_range_form.as_p }}
+        </div> 
+        
+        <!-- Date container -->
+        <div id="date-range-container" style="display: none;">
+            <label for="start-date">Start Date</label>
+            <input type="text" name="start-date" id="start-date">
+            <label for="end-date">End Date</label>
+            <input type="text" name="end-date" id="end-date">
+        </div>  
+
+        <button class="btn btn-primary" type="submit">Submit</button>
+    </form>
+
+    <!-- Holds all currently active filters on the dataset-->
+    <h2>Active Filters</h2>
+    <ul>
+        <!-- Lists all active filters -->
+        {% for column, filter_set in active_filters.items %}
+            <li class="list-group">{{ column }}:
+                <ul>
+                    {% for filter_value in filter_set %}
+                        <li class="list-group">{{ filter_value }}</li>
+                        <!-- Controls for removing a filter if the user would like. -->
+                        <form method="post" action="{% url 'remove_filter' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="column" value="{{ column }}">
+                            <input type="hidden" name="filter_value" value="{{ filter_value }}">
+                            <button type="submit">Remove</button>
+                        </form>
+                    {% endfor %}
+                </ul>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <!-- Download data button -->
+    <form action="{% url 'download_data' %}" method="post">
+        {% csrf_token %}
+        <button class="btn btn-dark" type="submit">Download Data</button>
+    </form>
+
+    <!-- Hits populated by our Elasticsearch search -->
+    <!-- Populates the table with all the relevant columns and data -->
+    {% if hits %}
+    <div class="table-container">   
+        <table class="table table-striped table-bordered table-hover">
+            <thead class="thead-dark">
+                <tr>
+                    {% for column_name in column_names %}
+                        <th>{{ column_name|capfirst }}</th> 
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for hit in hits %} 
+                <tr>
+                    {% for column_name in column_names %}
+                        <td>{{ hit|attr:column_name }}</td>  <!-- Use both filters -->
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+        <p>No data available.</p>
+    {% endif %}
+
+    <!-- jQuery scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
+</body>
+
+<!-- For the custom date range viewer when date range is selected -->
+<script>
+    $(document).ready(function() {
+        $("#start-date, #end-date").datepicker({
+            format: 'yyyy-mm-dd',
+            autoclose: true,
+            todayHighlight: true,
+            minDate: new Date('2022-01-01'), // Minimum date constraint
+            maxDate: new Date('2022-12-31')  // Maximum date constraint
+        });
+    });
+</script>
+
+<!-- Typeahead script, requests a Json response with every letter typed into the search bar -->
+<script>
+    $(function() {
+      $("#fname").autocomplete({
+        source: function(request, response) { // Modified source function 
+          // Send selected column with the request
+          $.getJSON("{% url 'autocomplete' %}", {
+            term: request.term,
+            column: $("#column").val()  // Get the value of the selected column
+          }, response); // Pass the suggestions to the autocomplete
+        },
+      });
+    });
+</script>
+
+<script>
+    // Function to handle column dropdown change
+    document.getElementById('column').addEventListener('change', function() {
+        var column = this.value;
+        var fnameContainer = document.getElementById('fname-container');
+        var fnameInput = document.getElementById('fname');
+        var responseContainer = document.getElementById('response-container');
+        var paymentRangeContainer = document.getElementById('payment-range-container');
+        var dateRangeContainer = document.getElementById('date-range-container');
+        
+        // If the selected column is one of the checkbox columns
+        if (['physician_ownership_indicator', 'third_party_payment_recipient_indicator', 'charity_indicator', 'third_party_equals_covered_recipient_indicator', 'delay_in_publication_indicator', 'dispute_status_for_publication', 'related_product_indicator'].includes(column)) {
+            fnameContainer.style.display = 'none';
+            fnameInput.value = '';
+            paymentRangeContainer.style.display = 'none';
+            dateRangeContainer.style.display = 'none';
+            responseContainer.innerHTML = `
+                <label for="response">Response:</label>
+                <input type="checkbox" name="response" id="responseCheckbox">
+            `;
+        } else if (column === 'total_amount_of_payment_usdollars') {
+            // Show the payment range container
+            paymentRangeContainer.style.display = 'block';
+            fnameContainer.style.display = 'none';
+            fnameInput.value = '';
+            responseContainer.innerHTML = '';
+            dateRangeContainer.style.display = 'none';
+        } else if (column === 'date_of_payment') {
+            // Show the date range container
+            dateRangeContainer.style.display = 'block';
+            fnameContainer.style.display = 'none';
+            fnameInput.value = '';
+            paymentRangeContainer.style.display = 'none';
+            responseContainer.innerHTML = '';
+        } else {
+            // Show the fname input field
+            fnameContainer.style.display = 'block';
+            responseContainer.innerHTML = ``;
+            paymentRangeContainer.style.display = 'none';
+            dateRangeContainer.style.display = 'none';
+        }
+    });
+</script>
