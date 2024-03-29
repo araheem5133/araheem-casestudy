@@ -3,11 +3,17 @@
 
 ### Clone repository into a container and run the application with the following commands:
 pip install -r requirements.txt
+
 cd reorg (If you are not already in the Django reorg project directory)
+
 python manage.py makemigrations
+
 python manage.py migrate
+
 python manage.py download_data 100 (You may replace 100 with whatever number of megabytes you want to install from CSM General Payment 2022)
+
 python manage.py import_csv data.csv --max=10000 (You may replace 10000 with however many rows you want to import into the PostgreSQL database)
+
 python manage.py search_index --rebuild (Ensure this is run after every import or the query will not work properly!)
 
 To start the application run the following command:
