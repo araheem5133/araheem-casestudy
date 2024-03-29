@@ -1,42 +1,42 @@
 import os
 import requests
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandParser
+from django.conf import settings
 
-#Downloads the CSV file from the CSM Url using a Json request
-#Speeds can be very slow, recommended to unzip if possible
+#Downloads the most recent data. Takes an operator for the number of 1MB chunks you want to download from the URL
 class Command(BaseCommand):
-    help = 'Download data.csv from a given URL'
+    help = 'Download data.csv from a given URL in chunks, with a maximum chunk limit'
+
+    def add_arguments(self, parser):
+        parser.add_argument('max_chunks', type=int, help="Maximum number of chunks to download")
 
     def handle(self, *args, **kwargs):
-        # Defines the URL
         url = "https://openpaymentsdata.cms.gov/api/1/metastore/schemas/dataset/items/df01c2f8-dc1f-4e79-96cb-8208beaf143c?show-reference-ids=false"
+        chunk_size = 1024 * 1024  # 1 MB chunks
+        max_chunks = kwargs['max_chunks']
 
-        # Send a GET request to the URL
         response = requests.get(url)
-
-        # Check if the request was successful (status code 200)
         if response.status_code == 200:
-            # Parse the JSON response
             data = response.json()
-            
-            # Extract the download URL from the JSON response
             download_url = data["distribution"][0]["data"]["downloadURL"]
-            
-            # Download the CSV file
-            csv_response = requests.get(download_url)
-            
-            # Check if the download was successful
+
+            csv_response = requests.get(download_url, stream=True)
             if csv_response.status_code == 200:
-                # Get the base directory of the Django project
-                base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                
-                # Define the path to save the CSV file
+                base_dir = settings.BASE_DIR  # Use Django's built-in settings
                 file_path = os.path.join(base_dir, "data.csv")
-                
-                # Save the CSV data to a file
+
                 with open(file_path, "wb") as f:
-                    f.write(csv_response.content)
-                
+                    total_chunks = 0
+                    for chunk in csv_response.iter_content(chunk_size):
+                        if chunk:
+                            f.write(chunk)
+                            total_chunks += 1
+                            self.stdout.write(f"Chunks written: {total_chunks}\r", ending="")
+
+                            if total_chunks >= max_chunks:
+                                self.stdout.write("\nMaximum chunk limit reached. Download stopped.")
+                                break
+
                 self.stdout.write(self.style.SUCCESS("CSV file downloaded successfully."))
             else:
                 self.stderr.write("Failed to download CSV file.")
