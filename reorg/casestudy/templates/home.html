@@ -19,22 +19,26 @@
 </html>
 
 <body>
-    <h1>General Payments 2022 @ Reorg </h1>
+    <div class="container">
+    <div class="row justify-content-center">
+    <div class="col-md-6">
+    <h2>General Payments 2022 @ Reorg </h1>
     <!-- Primary input form -->
-    <form method="POST" action="{% url 'autocomplete' %}">
+    <form class="form-horizontal "method="POST" action="{% url 'autocomplete' %}">
         {% csrf_token %}
         <!-- Dropdown for columns to filter by -->
+        <div class="form-group">
         <label for="column">Search Column:</label>
-        <select name="column" id="column">
-            {% for column in columns %}
-                <option value="{{ column }}">{{ column }}</option> 
+        <select class="form-control" name="column" id="column">
+            {% for column, display_name in columns %}
+                <option value="{{ column }}">{{ display_name }}</option>
             {% endfor %}
         </select>
-
+        </div>
         <!-- Written text input field -->
         <div id="fname-container">
             <label for="fname">Input</label>
-            <input type="text" name="fname" id="fname">
+            <input type="text" class="form-control" name="fname" id="fname">
         </div>
         
         <!-- Checkbox dropdown -->
@@ -57,28 +61,33 @@
 
         <button class="btn btn-primary" type="submit">Submit</button>
     </form>
+    </div>
+    </div>
+    </div>
 
     <!-- Holds all currently active filters on the dataset-->
-    <h2>Active Filters</h2>
-    <ul>
+    <h3>Active Filters</h3>
+    <ul class="list-group">
         <!-- Lists all active filters -->
         {% for column, filter_set in active_filters.items %}
-            <li class="list-group">{{ column }}:
-                <ul>
+            <li class="list-group-item">{{ column }}:
+                <ul class="list-group">
                     {% for filter_value in filter_set %}
-                        <li class="list-group">{{ filter_value }}</li>
+                        <li class="list-group-item">{{ filter_value }}</li>
                         <!-- Controls for removing a filter if the user would like. -->
                         <form method="post" action="{% url 'remove_filter' %}">
                             {% csrf_token %}
                             <input type="hidden" name="column" value="{{ column }}">
                             <input type="hidden" name="filter_value" value="{{ filter_value }}">
-                            <button type="submit">Remove</button>
+                            <button class="btn btn-danger" type="submit">Remove</button>
                         </form>
                     {% endfor %}
                 </ul>
             </li>
         {% endfor %}
     </ul>
+
+    <h4>Total Hits: {{ total_hits }}</h4>
 
     <!-- Download data button -->
     <form action="{% url 'download_data' %}" method="post">
@@ -93,18 +102,18 @@
         <table class="table table-striped table-bordered table-hover">
             <thead class="thead-dark">
                 <tr>
-                    {% for column_name in column_names %}
-                        <th>{{ column_name|capfirst }}</th> 
+                    {% for _, display_name in columns %}
+                        <th>{{ display_name|capfirst }}</th>
                     {% endfor %}
                 </tr>
             </thead>
             <tbody>
-                {% for hit in hits %} 
-                <tr>
-                    {% for column_name in column_names %}
-                        <td>{{ hit|attr:column_name }}</td>  <!-- Use both filters -->
-                    {% endfor %}
-                </tr>
+                {% for hit in hits %}
+                    <tr>
+                        {% for column, _ in columns %}
+                            <td>{{ hit|attr:column }}</td>
+                        {% endfor %}
+                    </tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -112,7 +121,6 @@
     {% else %}
         <p>No data available.</p>
     {% endif %}
-
     <!-- jQuery scripts -->
     <script src="https://code.jquery.com/jquery-3.6.0.js"></script>
     <script src="https://code.jquery.com/ui/1.13.2/jquery-ui.js"></script>
