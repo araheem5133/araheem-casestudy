@@ -1,7 +1,7 @@
-#Abdul Raheem Case Study
-##Requires Docker to run via docker-compose
+# Abdul Raheem Case Study
+## Requires Docker to run via docker-compose
 
-###Clone repository into a container and run the application with the following commands:
+### Clone repository into a container and run the application with the following commands:
 pip install -r requirements.txt
 cd reorg (If you are not already in the Django reorg project directory)
 python manage.py makemigrations
@@ -14,7 +14,7 @@ To start the application run the following command:
 python manage.py runserver
 Navigate to http://127.0.0.1:8000/ or whichever directory is referenced on execute.
 
-###Querying
+### Querying
 
 To query, select a column from the dropdown and input a value. Autosuggestions will fill the input bar for the query.
 Multiple filters can be placed on a query set and autosuggestions will constraint to the query.
